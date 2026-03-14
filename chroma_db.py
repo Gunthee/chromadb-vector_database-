@@ -7,14 +7,14 @@ import numpy as np
 
 #database 
 COLLECTION_NAME = "my_collection" #database name 
-EMBED_MODEL = "paraphrase-multilingual-mpnet-base-v2" #transformer embedding model
+EMBED_MODEL = "intfloat/multilingual-e5-large"
 CHROMA_DB_PATH = "chroma_db" #databas path 
 
 #load dataframe 
-df = pd.read_csv("query_job_dataset.csv") #load data from csv file
+df = pd.read_csv("chromadb-vector_database-\query_job_dataset.csv") #load data from csv file
 print(df.columns) #print first 5 rows of the dataframe to check if data is loaded correctly
 
-# Clean missing values
+# Clean missing values  
 df["ID_JOB"] = df["ID_JOB"].astype(str)
 df["JOB_DESCRIPTION"] = df["JOB_DESCRIPTION"].fillna("").astype(str)
 df["POSITION_NAME"] = df["POSITION_NAME"].fillna("").astype(str)
@@ -22,7 +22,14 @@ df["JOB_QUALIFICATION"] = df["JOB_QUALIFICATION"].fillna("").astype(str)
 
 # Prepare data
 ids = df["ID_JOB"].tolist()
-documents = df["JOB_DESCRIPTION"].tolist()
+documents = [
+    f"passage: ตำแหน่งงาน {p}. รายละเอียดงาน {d}. คุณสมบัติ {q}"
+    for p, d, q in zip(
+        df["POSITION_NAME"],
+        df["JOB_DESCRIPTION"],
+        df["JOB_QUALIFICATION"]
+    )
+]
 position_name = df["POSITION_NAME"].tolist()
 job_qualification = df["JOB_QUALIFICATION"].tolist()
 
@@ -44,16 +51,17 @@ embedding_func = embedding_functions.SentenceTransformerEmbeddingFunction(
 )
 
 #Create collection(table)
+
 collection = client.get_or_create_collection(
-    name=COLLECTION_NAME,
-    embedding_function=embedding_func, # embbeding function from sentence-transformer
-    metadata={"hnsw:space": "cosine"}, # use cosine similarity to find closeness result. You can choose another include l2, ip.
+    name="my_collection",
+    embedding_function=embedding_func
 )
 
-#add data to collection
-collection.add(documents=documents, 
-               ids=ids, 
-               metadatas= metadatas)
+collection.add(
+    documents=documents,
+    ids=ids,
+    metadatas=metadatas
+)
 
 #print number of documents in the collection
 print(f"Number of documents in the collection: {collection.count()}")
@@ -63,7 +71,7 @@ print(collection.peek())
 
 #query data from the database
 def query_collection(query:str):
-    top_k = 3
+    top_k = 5
 
     results = collection.query(
         query_texts=[query],
